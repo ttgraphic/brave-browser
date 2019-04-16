@@ -9,7 +9,7 @@ pipeline {
         string(name: "BRANCH", defaultValue: "master", description: "")
         choice(name: "CHANNEL", choices: ["nightly", "dev", "beta", "release"], description: "")
         booleanParam(name: "WIPE_WORKSPACE", defaultValue: false, description: "")
-        booleanParam(name: "RUN_INIT", defaultValue: false, description: "")
+        booleanParam(name: "SKIP_INIT", defaultValue: false, description: "")
         booleanParam(name: "DISABLE_SCCACHE", defaultValue: false, description: "")
         // TODO: add SKIP_SIGNING
         booleanParam(name: "DEBUG", defaultValue: false, description: "")
@@ -19,23 +19,29 @@ pipeline {
         BRAVE_GOOGLE_API_KEY = credentials("npm_config_brave_google_api_key")
         BRAVE_ARTIFACTS_BUCKET = credentials("brave-jenkins-artifacts-s3-bucket")
         BRAVE_S3_BUCKET = credentials("brave-binaries-s3-bucket")
+        SLACK_USERNAME_MAP = credentials('github-to-slack-username-map')
     }
     stages {
         stage("env") {
             steps {
                 script {
+                    SLACK_COLOR_MAP = ['SUCCESS': 'good', 'FAILURE': 'danger', 'UNSTABLE': 'warning', 'ABORTED': 'warning']
+                    SLACK_USERNAME = readJSON(text: SLACK_USERNAME_MAP)[env.CHANGE_AUTHOR]
+                    if (SLACK_USERNAME) {
+                        slackSend(channel: SLACK_USERNAME, message: "STARTED - ${JOB_NAME} ${BUILD_NUMBER} (<${BUILD_URL}/flowGraphTable/?auto_refresh=true|Open>)")
+                    }
                     BRANCH = params.BRANCH
+                    BRANCH_TO_BUILD = (env.CHANGE_BRANCH.equals(null) ? BRANCH : env.CHANGE_BRANCH)
                     CHANNEL = params.CHANNEL
                     CHANNEL_CAPITALIZED = CHANNEL.capitalize()
                     WIPE_WORKSPACE = params.WIPE_WORKSPACE
-                    RUN_INIT = params.RUN_INIT
+                    SKIP_INIT = params.SKIP_INIT
                     DISABLE_SCCACHE = params.DISABLE_SCCACHE
                     DEBUG = params.DEBUG
                     BUILD_TYPE = "Release"
                     OUT_DIR = "src/out/" + BUILD_TYPE
                     LINT_BRANCH = "TEMP_LINT_BRANCH_" + BUILD_NUMBER
                     RELEASE_TYPE = (env.JOB_NAME.equals("brave-browser-build") ? "release" : "ci")
-                    BRANCH_TO_BUILD = (env.CHANGE_BRANCH.equals(null) ? BRANCH : env.CHANGE_BRANCH)
                     BRAVE_GITHUB_TOKEN = "brave-browser-releases-github"
                     GITHUB_API = "https://api.github.com/repos/brave"
                     GITHUB_CREDENTIAL_ID = "brave-builds-github-token-for-pr-builder"
@@ -70,7 +76,7 @@ pipeline {
             }
             parallel {
                 stage("android") {
-                    agent { label "linux-${RELEASE_TYPE}" }
+                    agent { label "android-${RELEASE_TYPE}" }
                     environment {
                         GIT_CACHE_PATH = "${HOME}/cache"
                         SCCACHE_BUCKET = credentials("brave-browser-sccache-android-s3-bucket")
@@ -106,15 +112,10 @@ pipeline {
                         }
                         stage("init") {
                             when {
-                                expression { return !fileExists("src/brave/package.json") || RUN_INIT }
+                                expression { !SKIP_INIT }
                             }
                             steps {
                                 sh "npm run init -- --target_os=android"
-                            }
-                        }
-                        stage("sync") {
-                            steps {
-                                sh "npm run sync -- --all --target_os=android"
                             }
                         }
                         stage("lint") {
@@ -208,15 +209,10 @@ pipeline {
                         }
                         stage("init") {
                             when {
-                                expression { return !fileExists("src/brave/package.json") || RUN_INIT }
+                                expression { !SKIP_INIT }
                             }
                             steps {
                                 sh "npm run init"
-                            }
-                        }
-                        stage("sync") {
-                            steps {
-                                sh "npm run sync -- --all"
                             }
                         }
                         stage("lint") {
@@ -354,21 +350,17 @@ pipeline {
                         }
                         stage("install") {
                             steps {
+                                buildName "${BUILD_NUMBER}-${BRANCH_TO_BUILD}-"+"${GIT_COMMIT}".substring(0, 7)
                                 sh "npm install --no-optional"
                                 sh "rm -rf ${GIT_CACHE_PATH}/*.lock"
                             }
                         }
                         stage("init") {
                             when {
-                                expression { return !fileExists("src/brave/package.json") || RUN_INIT }
+                                expression { !SKIP_INIT }
                             }
                             steps {
                                 sh "npm run init"
-                            }
-                        }
-                        stage("sync") {
-                            steps {
-                                sh "npm run sync -- --all"
                             }
                         }
                         stage("lint") {
@@ -526,7 +518,8 @@ pipeline {
                             }
                             steps {
                                 powershell """
-                                    \$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+                                    \$ErrorActionPreference = "Stop"
+                                    \$PSDefaultParameterValues['Out-File:Encoding'] = "utf8"
                                     jq "del(.config.projects[\\`"brave-core\\`"].branch) | .config.projects[\\`"brave-core\\`"].branch=\\`"${BRANCH_TO_BUILD}\\`"" package.json > package.json.new
                                     Move-Item -Force package.json.new package.json
                                 """
@@ -534,21 +527,23 @@ pipeline {
                         }
                         stage("install") {
                             steps {
-                                powershell "npm install --no-optional"
-                                powershell "Remove-Item ${GIT_CACHE_PATH}/*.lock"
+                                powershell """
+                                    \$ErrorActionPreference = "Stop"
+                                    npm install --no-optional
+                                    Remove-Item -ErrorAction SilentlyContinue -Force ${GIT_CACHE_PATH}/*.lock
+                                """
                             }
                         }
                         stage("init") {
                             when {
-                                expression { return !fileExists("src/brave/package.json") || RUN_INIT }
+                                expression { !SKIP_INIT }
                             }
                             steps {
-                                powershell "npm run init"
-                            }
-                        }
-                        stage("sync") {
-                            steps {
-                                powershell "npm run sync -- --all"
+                                powershell """
+                                    \$ErrorActionPreference = "Stop"
+                                    #Remove-Item -Recurse -Force vendor/depot_tools/win_tools-*
+                                    npm run init
+                                """
                             }
                         }
                         stage("lint") {
@@ -556,6 +551,7 @@ pipeline {
                                 script {
                                     try {
                                         powershell """
+                                            \$ErrorActionPreference = "Stop"
                                             git -C src/brave config user.name brave-builds
                                             git -C src/brave config user.email devops@brave.com
                                             git -C src/brave checkout -b ${LINT_BRANCH}
@@ -574,6 +570,7 @@ pipeline {
                         stage("build") {
                             steps {
                                 powershell """
+                                    \$ErrorActionPreference = "Stop"
                                     npm config --userconfig=.npmrc set brave_referrals_api_key ${REFERRAL_API_KEY}
                                     npm config --userconfig=.npmrc set brave_google_api_endpoint https://location.services.mozilla.com/v1/geolocate?key=
                                     npm config --userconfig=.npmrc set brave_google_api_key ${BRAVE_GOOGLE_API_KEY}
@@ -588,7 +585,10 @@ pipeline {
                                 timeout(time: 4, unit: "MINUTES") {
                                     script {
                                         try {
-                                            powershell "npm run test-security -- --output_path=\"${OUT_DIR}/brave.exe\""
+                                            powershell """
+                                                \$ErrorActionPreference = "Stop"
+                                                npm run test-security -- --output_path="${OUT_DIR}/brave.exe"
+                                            """
                                         }
                                         catch (ex) {
                                             currentBuild.result = "UNSTABLE"
@@ -602,7 +602,10 @@ pipeline {
                                 timeout(time: 20, unit: "MINUTES") {
                                     script {
                                         try {
-                                            powershell "npm run test -- brave_unit_tests ${BUILD_TYPE} --output brave_unit_tests.xml"
+                                            powershell """
+                                                \$ErrorActionPreference = "Stop"
+                                                npm run test -- brave_unit_tests ${BUILD_TYPE} --output brave_unit_tests.xml
+                                            """
                                             xunit([GoogleTest(deleteOutputFiles: true, failIfNotNew: true, pattern: "src/brave_unit_tests.xml", skipNoTestFiles: false, stopProcessingIfError: true)])
                                         }
                                         catch (ex) {
@@ -619,11 +622,15 @@ pipeline {
                             }
                             steps {
                                 powershell """
+                                    \$ErrorActionPreference = "Stop"
                                     Import-PfxCertificate -FilePath \"${KEY_PFX_PATH}\" -CertStoreLocation "Cert:\\LocalMachine\\My" -Password (ConvertTo-SecureString -String \"${AUTHENTICODE_PASSWORD_UNESCAPED}\" -AsPlaintext -Force)
                                     npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --official_build=true --skip_signing
                                 """
-                                powershell '(Get-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat) | % { $_ -replace "10.0.15063.0\", "" } | Set-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat'
-                                powershell "npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --build_omaha --tag_ap=x64-${CHANNEL} --target_arch=x64 --official_build=true --skip_signing"
+                                powershell '\$ErrorActionPreference = "Stop"; (Get-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat) | % { $_ -replace "10.0.15063.0\", "" } | Set-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat'
+                                powershell """
+                                    \$ErrorActionPreference = "Stop"
+                                    npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --build_omaha --tag_ap=x64-${CHANNEL} --target_arch=x64 --official_build=true --skip_signing
+                                """
                             }
                         }
                         stage("dist-release") {
@@ -632,11 +639,15 @@ pipeline {
                             }
                             steps {
                                 powershell """
+                                    \$ErrorActionPreference = "Stop"
                                     Import-PfxCertificate -FilePath \"${KEY_PFX_PATH}\" -CertStoreLocation "Cert:\\LocalMachine\\My" -Password (ConvertTo-SecureString -String \"${AUTHENTICODE_PASSWORD_UNESCAPED}\" -AsPlaintext -Force)
                                     npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --official_build=true
                                 """
-                                powershell '(Get-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat) | % { $_ -replace "10.0.15063.0\", "" } | Set-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat'
-                                powershell "npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --build_omaha --tag_ap=x64-${CHANNEL} --target_arch=x64 --official_build=true"
+                                powershell '\$ErrorActionPreference = "Stop"; (Get-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat) | % { $_ -replace "10.0.15063.0\", "" } | Set-Content src\\brave\\vendor\\omaha\\omaha\\hammer-brave.bat'
+                                powershell """
+                                    \$ErrorActionPreference = "Stop"
+                                    npm run create_dist -- ${BUILD_TYPE} --channel=${CHANNEL} --build_omaha --tag_ap=x64-${CHANNEL} --target_arch=x64 --official_build=true
+                                """
                             }
                         }
                         stage("archive") {
@@ -662,6 +673,15 @@ pipeline {
                                 s3Upload(acl: "Private", bucket: "${BRAVE_ARTIFACTS_BUCKET}", includePathPattern: "BraveBrowserUntagged${CHANNEL_CAPITALIZED}Setup_*.exe",
                                     path: "${JOB_NAME}/${BUILD_NUMBER}/", pathStyleAccessEnabled: true, payloadSigningEnabled: true, workingDir: "${OUT_DIR}"
                                 )
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            script {
+                                if (SLACK_USERNAME) {
+                                    slackSend(color: SLACK_COLOR_MAP[currentBuild.currentResult], channel: SLACK_USERNAME, message: currentBuild.currentResult + " - ${JOB_NAME} ${BUILD_NUMBER} (<${BUILD_URL}/flowGraphTable/?auto_refresh=true|Open>)")
+                                }
                             }
                         }
                     }
