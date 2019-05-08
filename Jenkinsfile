@@ -19,6 +19,7 @@ pipeline {
         BRAVE_GOOGLE_API_KEY = credentials("npm_config_brave_google_api_key")
         BRAVE_ARTIFACTS_BUCKET = credentials("brave-jenkins-artifacts-s3-bucket")
         BRAVE_S3_BUCKET = credentials("brave-binaries-s3-bucket")
+        GIT_SSH_COMMAND = "ssh -o StrictHostKeyChecking=no"
     }
     stages {
         stage("env") {
@@ -109,7 +110,9 @@ pipeline {
                                 expression { return !fileExists("src/brave/package.json") || RUN_INIT }
                             }
                             steps {
-                                sh "npm run init -- --target_os=android"
+                                sshagent (credentials: ['brave-antibot-repo-deploy-key']) {
+                                    sh "npm run init -- --target_os=android"
+                                }
                             }
                         }
                         stage("sync") {
@@ -211,7 +214,9 @@ pipeline {
                                 expression { return !fileExists("src/brave/package.json") || RUN_INIT }
                             }
                             steps {
-                                sh "npm run init"
+                                sshagent (credentials: ['brave-antibot-repo-deploy-key']) {
+                                    sh "npm run init"
+                                }
                             }
                         }
                         stage("sync") {
@@ -363,7 +368,9 @@ pipeline {
                                 expression { return !fileExists("src/brave/package.json") || RUN_INIT }
                             }
                             steps {
-                                sh "npm run init"
+                                sshagent (credentials: ['brave-antibot-repo-deploy-key']) {
+                                    sh "npm run init"
+                                }
                             }
                         }
                         stage("sync") {
@@ -543,7 +550,9 @@ pipeline {
                                 expression { return !fileExists("src/brave/package.json") || RUN_INIT }
                             }
                             steps {
-                                powershell "npm run init"
+                                sshagent (credentials: ['brave-antibot-repo-deploy-key']) {
+                                    powershell "npm run init"
+                                }
                             }
                         }
                         stage("sync") {
