@@ -535,7 +535,7 @@ pipeline {
                         stage("install") {
                             steps {
                                 powershell "npm install --no-optional"
-                                powershell "Remove-Item ${GIT_CACHE_PATH}/*.lock"
+                                powershell "Remove-Item -Recurse -Force ${GIT_CACHE_PATH}/*.lock"
                             }
                         }
                         stage("init") {
@@ -544,8 +544,7 @@ pipeline {
                             }
                             steps {
                                 // Workaround for https://github.com/brave/brave-browser/issues/1922
-                                powershell "Remove-Item vendor/depot_tools/win_tools-2_7_6_bin"
-                                powershell "Remove-Item vendor/depot_tools/win_tools-2_7_13_chromium7_bin"
+                                powershell "Remove-Item -Recurse -Force vendor/depot_tools/win_tools-*"
                                 powershell "npm run init"
                             }
                         }
