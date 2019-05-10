@@ -544,7 +544,7 @@ pipeline {
                             }
                             steps {
                                 // Workaround for https://github.com/brave/brave-browser/issues/1922
-                                powershell "Remove-Item vendor/depot_tools/win_tools-2_7_6_bin"
+                                powershell "Remove-Item vendor/depot_tools/win_tools-*"
                                 powershell "npm run init"
                             }
                         }
