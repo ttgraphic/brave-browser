@@ -45,7 +45,7 @@
         "repository": {
           "url": "https://github.com/brave/brave-core.git"
         },
-        "branch": "0.64.x"
+        "branch": "pr2407_fix-rewards-extension-notifications-hang_0.64.x"
       }
     },
     "widevine": {
