@@ -61,7 +61,7 @@ pipeline {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
                     }
-                    print currentBuild.getPreviousBuild().doStop()
+                    print currentBuild.getPreviousBuild().getRawBuild().getExecutor().doStop()
                     // print this.getClass()
                 }
             }
