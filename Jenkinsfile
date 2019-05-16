@@ -55,7 +55,7 @@ pipeline {
                         prDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-browser/pulls/" + prNumber, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)
                         SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
                     }
-                    if {BRANCH_EXISTS_IN_BC} {
+                    if (BRANCH_EXISTS_IN_BC) {
                         BC_PR_NUMBER = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:ads-history", authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0].number
                         // if (bcPrDetails) {
                         //     BC_PR_NUMBER = bcPrDetails.number
