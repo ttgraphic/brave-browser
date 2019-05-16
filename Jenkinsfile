@@ -88,8 +88,8 @@ pipeline {
                             // else {
                             //     print "You have a matching branch in brave-core, please create a PR there to trigger, aborting build!"
                             // }
-                            // currentBuild.result = "ABORTED"
-                            currentBuild.doStop()
+                            currentBuild.result = "ABORTED"
+                            // currentBuild.doStop()
                         }
                     }
                     else {
