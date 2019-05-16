@@ -61,8 +61,8 @@ pipeline {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
                     }
-                    print currentBuild
-                    print this
+                    print currentBuild.getClass()
+                    print this.getClass()
                 }
             }
         }
@@ -84,7 +84,6 @@ pipeline {
             }
             steps {
                 script{
-                    println("I sniffed ${thisjob.getParent().getItems()}!");
                     if (BRANCH_EXISTS_IN_BC) {
                         def currentBuild = Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild()
                         if (!currentBuild.getCause(hudson.model.Cause$UpstreamCause)) {
