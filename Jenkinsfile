@@ -80,10 +80,10 @@ pipeline {
                         def currentBuild = Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild()
                         def cause = currentBuild.getCause(hudson.model.Cause$UpstreamCause)
                         if (!cause) {
-                            prDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
-                            if (true) {
+                            bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
+                            if (bcPrDetails.number) {
                                 print "PR exists in brave-core and build has not been started from there, aborting build!"
-                                print "Use " + env.JENKINS_URL + "view/ci/job/brave-core-build-pr/view/change-requests/job/" + prDetails.number + " to trigger."
+                                print "Use " + env.JENKINS_URL + "view/ci/job/brave-core-build-pr/view/change-requests/job/" + bcPrDetails.number + " to trigger."
                             }
                             else {
                                 print "You have a matching branch in brave-core, please create a PR there to trigger, aborting build!"
