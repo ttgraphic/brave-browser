@@ -48,15 +48,15 @@ pipeline {
                     GITHUB_CREDENTIAL_ID = "brave-builds-github-token-for-pr-builder"
                     BRANCH_EXISTS_IN_BC = httpRequest(url: GITHUB_API + "/brave-core/branches/" + BRANCH_TO_BUILD, validResponseCodes: '100:499', authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).status.equals(200)
                     TARGET_BRANCH = "master"
-                    // SKIP = false
+                    SKIP = false
                     if (env.CHANGE_BRANCH) {
                         TARGET_BRANCH = env.CHANGE_TARGET
                         def prNumber = readJSON(text: httpRequest(url: GITHUB_API + "/brave-browser/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0].number
                         def prDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-browser/pulls/" + prNumber, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)
-                        // SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
+                        SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
                     }
                     if (BRANCH_EXISTS_IN_BC) {
-                        def bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:ads-history", authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
+                        def bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
                         if (bcPrDetails) {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
@@ -67,12 +67,12 @@ pipeline {
         stage("skip") {
             when {
                 beforeAgent true
-                expression { env.SKIP }
+                expression { !env.SKIP }
             }
             steps {
                 script {
                     print "PR is in draft or has \"CI/Skip\" label, aborting build!"
-                    currentBuild.result = "ABORTED"
+                    Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild().doStop()
                 }
             }
         }
@@ -87,7 +87,7 @@ pipeline {
                         if (!currentBuild.getCause(hudson.model.Cause$UpstreamCause)) {
                             if (env.BC_PR_NUMBER) {
                                 print "PR exists in brave-core and build has not been started from there, aborting build!"
-                                print "Use " + env.JENKINS_URL + "view/ci/job/brave-core-build-pr/view/change-requests/job/" + bcPrDetails.number + " to trigger."
+                                print "Use " + env.JENKINS_URL + "view/ci/job/brave-core-build-pr/view/change-requests/job/" + BC_PR_NUMBER + " to trigger."
                             }
                             else {
                                 print "You have a matching branch in brave-core, please create a PR there to trigger, aborting build!"
