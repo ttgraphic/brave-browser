@@ -56,7 +56,7 @@ pipeline {
                         SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
                     }
                     if (BRANCH_EXISTS_IN_BC) {
-                        def bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
+                        def bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:aaa" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
                         if (bcPrDetails) {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
@@ -67,7 +67,7 @@ pipeline {
         stage("skip") {
             when {
                 beforeAgent true
-                expression { !env.SKIP }
+                expression { env.SKIP }
             }
             steps {
                 script {
@@ -91,6 +91,7 @@ pipeline {
                             }
                             else {
                                 print "You have a matching branch in brave-core, please create a PR there to trigger, aborting build!"
+                                println("I sniffed ${thisjob.getParent().getItems()}!");
                             }
                             currentBuild.doStop()
                         }
@@ -99,6 +100,7 @@ pipeline {
                         for (build in Jenkins.instance.getItemByFullName(env.JOB_NAME).builds) {
                             if (build.isBuilding() && build.getNumber() < env.BUILD_NUMBER.toInteger()) {
                                 build.doStop()
+                                build.finish(hudson.model.Result.ABORTED, new java.io.IOException("Aborting build")
                             }
                         }
                     }
