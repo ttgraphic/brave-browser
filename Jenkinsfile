@@ -61,7 +61,8 @@ pipeline {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
                     }
-                    print build
+                    print currentBuild
+                    print this
                 }
             }
         }
