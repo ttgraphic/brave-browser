@@ -100,7 +100,7 @@ pipeline {
                         for (build in Jenkins.instance.getItemByFullName(env.JOB_NAME).builds) {
                             if (build.isBuilding() && build.getNumber() < env.BUILD_NUMBER.toInteger()) {
                                 build.doStop()
-                                build.finish(hudson.model.Result.ABORTED, new java.io.IOException("Aborting build")
+                                build.finish(hudson.model.Result.ABORTED, new java.io.IOException("Aborting build"))
                             }
                         }
                     }
