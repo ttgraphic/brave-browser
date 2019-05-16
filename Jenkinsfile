@@ -61,8 +61,8 @@ pipeline {
                             BC_PR_NUMBER = bcPrDetails.number
                         }
                     }
-                    print currentBuild.getClass()
-                    print this.getClass()
+                    print currentBuild.getPreviousBuild().doStop()
+                    // print this.getClass()
                 }
             }
         }
@@ -85,7 +85,6 @@ pipeline {
             steps {
                 script{
                     if (BRANCH_EXISTS_IN_BC) {
-                        def currentBuild = Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild()
                         if (!currentBuild.getCause(hudson.model.Cause$UpstreamCause)) {
                             if (env.BC_PR_NUMBER) {
                                 print "PR exists in brave-core and build has not been started from there, aborting build!"
@@ -97,12 +96,13 @@ pipeline {
                             currentBuild.doStop()                        }
                     }
                     else {
-                        for (build in Jenkins.instance.getItemByFullName(env.JOB_NAME).builds) {
-                            if (build.isBuilding() && build.getNumber() < env.BUILD_NUMBER.toInteger()) {
-                                build.doStop()
-                                build.finish(hudson.model.Result.ABORTED, new java.io.IOException("Aborting build"))
-                            }
-                        }
+                        currentBuild.getPreviousBuild().doStop()
+                        // for (build in Jenkins.instance.getItemByFullName(env.JOB_NAME).builds) {
+                        //     if (build.isBuilding() && build.getNumber() < env.BUILD_NUMBER.toInteger()) {
+                        //         build.doStop()
+                        //         build.finish(hudson.model.Result.ABORTED, new java.io.IOException("Aborting build"))
+                        //     }
+                        // }
                     }
                 }
             }
