@@ -85,7 +85,7 @@ pipeline {
                     if (BRANCH_EXISTS_IN_BC) {
                         def currentBuild = Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild()
                         if (!currentBuild.getCause(hudson.model.Cause$UpstreamCause)) {
-                            if (BC_PR_NUMBER) {
+                            if (env.BC_PR_NUMBER) {
                                 print "PR exists in brave-core and build has not been started from there, aborting build!"
                                 print "Use " + env.JENKINS_URL + "view/ci/job/brave-core-build-pr/view/change-requests/job/" + bcPrDetails.number + " to trigger."
                             }
