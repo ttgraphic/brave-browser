@@ -752,13 +752,13 @@ pipeline {
         //     }
         // }
     }
-    // post {
-    //     always {
-    //         script {
-    //             if (SLACK_USERNAME) {
-    //                 slackSend(color: SLACK_COLOR_MAP[currentBuild.currentResult], channel: SLACK_USERNAME, message: currentBuild.currentResult + " - ${JOB_NAME} ${BUILD_NUMBER} (<${BUILD_URL}/flowGraphTable/?auto_refresh=true|Open>)")
-    //             }
-    //         }
-    //     }
-    // }
+    post {
+        always {
+            script {
+                if (SLACK_USERNAME) {
+                    slackSend(color: SLACK_COLOR_MAP[currentBuild.currentResult], channel: SLACK_USERNAME, message: currentBuild.currentResult + " - ${JOB_NAME} ${BUILD_NUMBER} (<${BUILD_URL}/flowGraphTable/?auto_refresh=true|Open>)")
+                }
+            }
+        }
+    }
 }
