@@ -78,7 +78,7 @@ pipeline {
         }
         stage("abort") {
             when {
-                expression { !SKIP }
+                expression { !env.SKIP }
             }
             steps {
                 script{
