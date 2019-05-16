@@ -67,7 +67,7 @@ pipeline {
         stage("skip") {
             when {
                 beforeAgent true
-                expression { SKIP }
+                expression { env.SKIP }
             }
             steps {
                 script {
