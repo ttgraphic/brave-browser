@@ -48,12 +48,12 @@ pipeline {
                     GITHUB_CREDENTIAL_ID = "brave-builds-github-token-for-pr-builder"
                     BRANCH_EXISTS_IN_BC = httpRequest(url: GITHUB_API + "/brave-core/branches/" + BRANCH_TO_BUILD, validResponseCodes: '100:499', authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).status.equals(200)
                     TARGET_BRANCH = "master"
-                    SKIP = false
+                    // SKIP = false
                     if (env.CHANGE_BRANCH) {
                         TARGET_BRANCH = env.CHANGE_TARGET
                         def prNumber = readJSON(text: httpRequest(url: GITHUB_API + "/brave-browser/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0].number
                         def prDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-browser/pulls/" + prNumber, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)
-                        SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
+                        // SKIP = prDetails.mergeable_state.equals("draft") or prDetails.labels.count { label -> label.name.equals("CI/Skip") }.equals(1)
                     }
                     if (BRANCH_EXISTS_IN_BC) {
                         def bcPrDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:ads-history", authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
