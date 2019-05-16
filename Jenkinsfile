@@ -79,7 +79,6 @@ pipeline {
                     if (BRANCH_EXISTS_IN_BC) {
                         def currentBuild = Jenkins.instance.getItemByFullName(env.JOB_NAME).getLastBuild()
                         def cause = currentBuild.getCause(hudson.model.Cause$UpstreamCause)
-                        print cause
                         if (!cause) {
                             prDetails = readJSON(text: httpRequest(url: GITHUB_API + "/brave-core/pulls?head=brave:" + BRANCH_TO_BUILD, authentication: GITHUB_CREDENTIAL_ID, quiet: !DEBUG).content)[0]
                             if (prDetails.number) {
@@ -89,7 +88,8 @@ pipeline {
                             else {
                                 print "You have a matching branch in brave-core, please create a PR there to trigger, aborting build!"
                             }
-                            currentBuild.result = "ABORTED"
+                            // currentBuild.result = "ABORTED"
+                            build.doStop()
                         }
                     }
                     else {
